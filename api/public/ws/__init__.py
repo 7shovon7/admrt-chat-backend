@@ -1,67 +1,13 @@
-from time import time_ns
 import json
 import sys
-from typing import Literal, Optional, Union
 from fastapi import WebSocket
-from pydantic import BaseModel, TypeAdapter, ValidationError, field_validator, computed_field
+from pydantic import TypeAdapter, ValidationError
 from sqlmodel import Session
 
 from api.public.chat.crud import save_chat
 from api.public.chat.models import ChatCreate
+from api.public.ws.schemas import ChatInputSchema, ChatSenderSchema, ClientNotification, DeliveryStatusNotification, ErrorNotification
 from api.utils.utility_functions import generate_conversation_id
-
-
-# Chat Schemas
-class ChatBaseSchema(BaseModel):
-    text: str
-
-
-class ChatSenderSchema(ChatBaseSchema):
-    sender_id: Union[int, str]
-    # created_at: Optional[datetime] = Field(default_factory=datetime.now().timestamp)
-
-    @field_validator('sender_id')
-    def convert_to_string(cls, value):
-        return str(value)
-    
-    @computed_field
-    @property
-    def created_at(self) -> int:
-        return time_ns() // 1000000
-
-
-class ChatReceiverSchema(ChatBaseSchema):
-    receiver_id: Union[int, str]
-
-    @field_validator('receiver_id')
-    def convert_to_string(cls, value):
-        return str(value)
-
-
-class ChatInputSchema(ChatReceiverSchema):
-    sender_id: Optional[Union[int, str, None]] = None
-    conversation_id: Optional[Union[str, None]] = None
-
-#### CHAT SCHEMAS ENDS
-
-
-class DeliveryStatusNotification(BaseModel):
-    sent: Optional[bool] = True
-
-
-class ErrorNotification(BaseModel):
-    message: str
-    
-
-class ClientNotification(BaseModel):
-    notification_type: Literal[
-        'ERROR',
-        'DELIVERY-STATUS',
-    ]
-    notification_object: Union[
-        ErrorNotification,
-        DeliveryStatusNotification,
-    ]
 
 
 class ConnectionManager:
@@ -71,7 +17,6 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
         self.active_connections[client_id] = websocket
-        print(sys.getsizeof(self.active_connections))
 
     def disconnect(self, client_id: str):
         try:
@@ -112,10 +57,6 @@ class ConnectionManager:
             db: Session,
     ):
         if chat.receiver_id in self.active_connections:
-            print(chat.model_dump())
-            print(ChatSenderSchema(**chat.model_dump()))
-            print(ChatSenderSchema(**chat.model_dump()).model_dump())
-            print(json.dumps(ChatSenderSchema(**chat.model_dump()).model_dump()))
             await self.active_connections[chat.receiver_id].send_text(
                 json.dumps(ChatSenderSchema(**chat.model_dump()).model_dump())
             )
