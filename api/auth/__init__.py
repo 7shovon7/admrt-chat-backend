@@ -1,3 +1,4 @@
+from api.config import settings
 from typing import Annotated, Union
 from fastapi import Cookie, HTTPException, Query, WebSocket, status, WebSocketException
 import httpx
@@ -11,7 +12,7 @@ async def get_user(token: str):
         async with httpx.AsyncClient() as client:
             print('hi')
             resp = await client.get(
-                url="http://localhost:8000/auth/users/me/",
+                url=f"{settings.AUTH_URI}/auth/users/me/",
                 headers={
                     HEADER_KEY: 'JWT ' + token
                 }
