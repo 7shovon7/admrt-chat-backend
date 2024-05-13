@@ -38,10 +38,19 @@ class ConnectionManager:
         try:
             # Generate proper chat object
             message: ChatInputSchema = TypeAdapter(ChatInputSchema).validate_json(message)
-            message.sender_id = sender_id
-            message.conversation_id = generate_conversation_id(sender_id, message.receiver_id)
-            # Send chat
-            await self.send_personal_message(message, db)
+            if message.receiver_id == sender_id:
+                notification = ClientNotification(
+                    notification_type='ERROR',
+                    notification_object=ErrorNotification(
+                        message="Messaging ownself isn't supported yet"
+                    )
+                )
+                await self.notify_client(sender_id, notification)
+            else:
+                message.sender_id = sender_id
+                message.conversation_id = generate_conversation_id(sender_id, message.receiver_id)
+                # Send chat
+                await self.send_personal_message(message, db)
         except ValidationError:
             notification = ClientNotification(
                 notification_type='ERROR',
