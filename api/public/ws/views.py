@@ -10,7 +10,7 @@ from api.public.ws import manager as connection_manager
 router = APIRouter()
 
 
-@router.websocket('/{to_id}')
+@router.websocket('/')
 async def websocket_endpoint_for_chat(
     *,
     websocket: WebSocket,
