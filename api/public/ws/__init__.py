@@ -1,10 +1,13 @@
 import json
+import sys
 from fastapi import WebSocket
+from pydantic import TypeAdapter, ValidationError
 from sqlmodel import Session
 
-from api.database import get_session
 from api.public.chat.crud import save_chat
 from api.public.chat.models import ChatCreate
+from api.public.ws.schemas import ChatInputSchema, ChatSenderSchema, ClientNotification, DeliveryStatusNotification, ErrorNotification
+from api.utils.utility_functions import generate_conversation_id
 
 
 class ConnectionManager:
@@ -16,40 +19,59 @@ class ConnectionManager:
         self.active_connections[client_id] = websocket
 
     def disconnect(self, client_id: str):
-        del self.active_connections[client_id]
+        try:
+            del self.active_connections[client_id]
+        except KeyError:
+            pass
+
+    async def notify_client(self, client_id: str, notification: ClientNotification):
+        if client_id in self.active_connections:
+            await self.active_connections[client_id].send_text(json.dumps(notification.model_dump()))
+        pass
+
+    async def manage_message(
+            self,
+            sender_id: str,
+            message: str,
+            db: Session,
+    ):
+        try:
+            # Generate proper chat object
+            message: ChatInputSchema = TypeAdapter(ChatInputSchema).validate_json(message)
+            message.sender_id = sender_id
+            message.conversation_id = generate_conversation_id(sender_id, message.receiver_id)
+            # Send chat
+            await self.send_personal_message(message, db)
+        except ValidationError:
+            notification = ClientNotification(
+                notification_type='ERROR',
+                notification_object=ErrorNotification(
+                    message="Problem with chat object format"
+                )
+            )
+            await self.notify_client(sender_id, notification)
 
     async def send_personal_message(
             self,
-            from_client: str,
-            to_client: str,
-            message: str,
-            db: Session = get_session
+            chat: ChatInputSchema,
+            db: Session,
     ):
-        if to_client in self.active_connections:
-            await self.active_connections[to_client].send_text(json.dumps({
-                "from_id": from_client,
-                "message": message,
-            }))
-            await self.active_connections[from_client].send_text(json.dumps({
-                "to_id": to_client,
-                "sent": True,
-            }))
-        # Save to db
-        await save_chat(
-            chat=ChatCreate(
-                sender_id=from_client,
-                receiver_id=to_client,
-                text=message
-            ),
-            db=db
-        )
+        if chat.receiver_id in self.active_connections:
+            await self.active_connections[chat.receiver_id].send_text(
+                json.dumps(ChatSenderSchema(**chat.model_dump()).model_dump())
+            )
+            notification = ClientNotification(
+                notification_type='DELIVERY-STATUS',
+                notification_object=DeliveryStatusNotification(
+                    sent=True
+                )
+            )
+            await self.notify_client(chat.sender_id, notification)
 
-    async def send_connection_closure_notification(self, from_client: str, to_client: str):
-        if to_client in self.active_connections:
-            await self.active_connections[to_client].send_text(json.dumps({
-                'from_id': from_client,
-                'disconnected': True,
-            }))
+        await save_chat(
+            chat=ChatCreate(**chat.model_dump()),
+            db=db,
+        )
 
     
 manager = ConnectionManager()

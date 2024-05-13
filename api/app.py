@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 
@@ -12,6 +13,7 @@ logger = logger_config(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    os.remove('database.db')
     create_db_and_tables()
 
     logger.info("startup: triggered")

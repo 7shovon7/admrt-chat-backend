@@ -10,7 +10,6 @@ HEADER_KEY = 'Authorization'
 async def get_user(token: str):
     try:
         async with httpx.AsyncClient() as client:
-            print('hi')
             resp = await client.get(
                 url=f"{settings.AUTH_URI}/auth/users/me/",
                 headers={
@@ -56,7 +55,7 @@ async def approve_jwt_token_for_http(
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials!"
+            detail="Credentials are required either in token or session"
         )
 
 

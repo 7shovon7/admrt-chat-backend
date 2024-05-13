@@ -1,9 +1,6 @@
-from datetime import datetime
-# from pydantic import computed_field
+from time import time_ns
 from typing import Optional, Union
 from sqlmodel import Field, SQLModel
-
-# from api.utils.utility_functions import generate_conversation_id
 
 
 class ChatBase(SQLModel):
@@ -11,19 +8,10 @@ class ChatBase(SQLModel):
     receiver_id: str
     text: str
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "sender_id": "13",
-                "receiver_id": "15",
-                "text": "Hello!",
-            }
-        }
-
 
 class Chat(ChatBase, table=True):
     id: Optional[Union[int, None]] = Field(default=None, primary_key=True)
-    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    created_at: Optional[int] = Field(default_factory=lambda: time_ns() // 1000)
     conversation_id: Optional[Union[str, None]] = None
 
     # @computed_field
@@ -38,5 +26,5 @@ class ChatCreate(ChatBase):
 
 class ChatRead(ChatBase):
     id: int
-    created_at: Optional[datetime]
+    created_at: Optional[int]
     conversation_id: str
