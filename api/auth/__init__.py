@@ -10,7 +10,6 @@ HEADER_KEY = 'Authorization'
 async def get_user(token: str):
     try:
         async with httpx.AsyncClient() as client:
-            print('hi')
             resp = await client.get(
                 url=f"{settings.AUTH_URI}/auth/users/me/",
                 headers={

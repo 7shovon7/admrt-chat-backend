@@ -17,7 +17,7 @@ class ChatSenderSchema(ChatBaseSchema):
     @computed_field
     @property
     def created_at(self) -> int:
-        return time_ns() // 1000000
+        return time_ns() // 1000
 
 
 class ChatReceiverSchema(ChatBaseSchema):
