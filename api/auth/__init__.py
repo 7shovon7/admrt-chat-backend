@@ -1,5 +1,5 @@
 from api.config import settings
-from typing import Annotated, Union
+from typing import Union
 from fastapi import Cookie, HTTPException, Query, WebSocket, status, WebSocketException
 import httpx
 
@@ -35,8 +35,8 @@ async def get_user(token: str):
 
 
 async def approve_jwt_token(
-        token: Annotated[Union[str, None], Query()] = None,
-        session: Annotated[Union[str, None], Cookie()] = None,
+        token: Union[str, None] = Query(None),
+        session: Union[str, None] = Cookie(None),
 ):
     if token:
         return await get_user(token)
@@ -47,8 +47,8 @@ async def approve_jwt_token(
 
 
 async def approve_jwt_token_for_http(
-        token: Annotated[Union[str, None], Query()] = None,
-        session: Annotated[Union[str, None], Cookie()] = None,
+        token: Union[str, None] = Query(None),
+        session: Union[str, None] = Cookie(None),
 ):
     approved_token = await approve_jwt_token(token=token, session=session)
     if approved_token and approved_token.get('id'):
@@ -62,8 +62,8 @@ async def approve_jwt_token_for_http(
 
 async def approve_jwt_token_for_ws(
         websocket: WebSocket,
-        token: Annotated[Union[str, None], Query()] = None,
-        session: Annotated[Union[str, None], Cookie()] = None,
+        token: Union[str, None] = Query(None),
+        session: Union[str, None] = Cookie(None),
 ):
     approved_token = await approve_jwt_token(token=token, session=session)
     if approved_token:

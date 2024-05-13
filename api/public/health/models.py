@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal
+from typing import Literal, Union
 
 from pydantic import BaseModel
 
@@ -10,11 +10,11 @@ class Status(str, Enum):
 
 
 class Health(BaseModel):
-    app_status: Status | None
-    db_status: Status | None
-    environment: Literal["development", "staging", "production"] | None
+    app_status: Union[Status, None] = None
+    db_status: Union[Status, None] = None
+    environment: Union[Literal["development", "staging", "production"], None] = None
 
 
 class Stats(BaseModel):
-    heroes: int | None
-    teams: int | None
+    heroes: Union[int, None] = None
+    teams: Union[int, None] = None

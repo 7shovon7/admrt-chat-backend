@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
@@ -16,10 +16,10 @@ router = APIRouter()
 logger = logger_config(__name__)
 
 
-@router.get('/', response_model=list[ChatRead])
+@router.get('/', response_model=List[ChatRead])
 async def get_chats(
         receiver_id: str,
-        token: Annotated[str, Depends(approve_jwt_token_for_http)],
+        token: str = Depends(approve_jwt_token_for_http),
         offset: int = 0,
         limit: int = Query(default=20, lte=20),
         db: Session = Depends(get_session),

@@ -1,4 +1,3 @@
-from typing import Annotated
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlmodel import Session
 from websockets import ConnectionClosedError
@@ -16,7 +15,7 @@ async def websocket_endpoint_for_chat(
     *,
     websocket: WebSocket,
     to_id: str,
-    token: Annotated[str, Depends(approve_jwt_token_for_ws)],
+    token: str = Depends(approve_jwt_token_for_ws),
     db: Session = Depends(get_session),
 ):
     from_id = str(token.get('id'))
