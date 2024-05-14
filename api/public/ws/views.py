@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 from websockets import ConnectionClosedError
 
 from api.auth import approve_jwt_token_for_ws
