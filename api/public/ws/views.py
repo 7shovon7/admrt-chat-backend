@@ -4,7 +4,7 @@ from websockets import ConnectionClosedError
 
 from api.auth import approve_jwt_token_for_ws
 from api.database import get_session
-from api.public.ws import manager as connection_manager
+from api.public.ws.connection_manager import manager as connection_manager
 
 
 router = APIRouter()
