@@ -41,6 +41,6 @@ class ChatCreate(ChatInput):
 class ChatRead(ChatBase):
     sender_id: str
     receiver_id: str
-    conversation_id: str
+    # conversation_id: str
     text: str
     created_at: int

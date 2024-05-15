@@ -22,7 +22,7 @@ async def websocket_endpoint_for_chat(
     try:
         while True:
             message = await websocket.receive_text()
-            await connection_manager.manage_message(from_id, message, db)
+            await connection_manager.handle_message(from_id, message, db)
     except WebSocketDisconnect:
         connection_manager.disconnect(from_id)
     except ConnectionClosedError:

@@ -1,3 +1,4 @@
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from api.database.models import ChatModel
@@ -17,15 +18,37 @@ async def save_chat(chat: ChatCreate, db: Session):
     return ChatRead(**chat_to_db.as_dict())
 
 
+async def fetch_conversation_upto_a_certain_time(
+    user_id1: str,
+    user_id2: str,
+    last_timestamp: int,
+    db: Session,
+    limit: int = 500,
+):
+    conversation_id = generate_conversation_id(user_id1, user_id2)
+    chats = db.query(ChatModel).filter(
+        and_(
+            ChatModel.conversation_id==conversation_id,
+            ChatModel.created_at>=last_timestamp
+        )
+    ).order_by(ChatModel.id.desc()).limit(limit).all()
+
+    conversation = [ChatRead(**chat.as_dict()) for chat in chats]
+    
+    return conversation
+
+
 async def get_chats_by_conversation(
-        user_id1: str,
-        user_id2: str,
-        db: Session,
-        limit: int = 20,
+    user_id1: str,
+    user_id2: str,
+    db: Session,
+    limit: int = 20,
 ):
     conversation_id = generate_conversation_id(user_id1, user_id2)
     chats = db.query(ChatModel).filter(
         ChatModel.conversation_id==conversation_id
     ).order_by(ChatModel.id.desc()).limit(limit).all()
+
     conversation = [ChatRead(**chat.as_dict()) for chat in chats]
+    
     return conversation
