@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String
 from api.database import Base
 
 
@@ -11,6 +11,7 @@ class ChatModel(Base):
     conversation_id = Column(String)
     text = Column(String)
     created_at = Column(Integer)
+    delivered = Column(Boolean, default=False)
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
