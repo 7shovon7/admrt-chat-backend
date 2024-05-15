@@ -18,7 +18,7 @@ async def websocket_endpoint_for_chat(
     db: Session = Depends(get_session),
 ):
     from_id = str(token.get('id'))
-    await connection_manager.connect(websocket, from_id)
+    await connection_manager.handle_new_connection(websocket, from_id, db)
     try:
         while True:
             message = await websocket.receive_text()

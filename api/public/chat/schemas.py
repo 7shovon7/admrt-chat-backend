@@ -1,5 +1,5 @@
 from time import time_ns
-from typing import Union
+from typing import Optional, Union
 from pydantic import BaseModel, computed_field, field_validator
 
 from api.utils import generate_conversation_id
@@ -15,6 +15,10 @@ class ChatInput(ChatBase):
     '''
     receiver_id: Union[int, str]
 
+    @field_validator('receiver_id')
+    def convert_to_string(cls, value):
+        return str(value)
+
 
 class ChatCreate(ChatInput):
     '''
@@ -22,8 +26,9 @@ class ChatCreate(ChatInput):
     generating conversation_id and adding created_at
     '''
     sender_id: str
+    delivered: Optional[bool] = False
 
-    @field_validator('sender_id', 'receiver_id')
+    @field_validator('sender_id')
     def convert_to_string(cls, value):
         return str(value)
     
@@ -38,9 +43,14 @@ class ChatCreate(ChatInput):
         return time_ns() // 1000
     
 
-class ChatRead(ChatBase):
+class ChatOutput(ChatBase):
     sender_id: str
     receiver_id: str
-    # conversation_id: str
     text: str
     created_at: int
+    delivered: bool
+
+
+class ChatRead(ChatOutput):
+    id: int
+    conversation_id: str
