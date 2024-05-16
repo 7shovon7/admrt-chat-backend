@@ -1,3 +1,4 @@
+from api.auth.schemas import ClientData
 from api.config import settings
 from typing import Union
 from fastapi import Cookie, HTTPException, Query, WebSocket, status, WebSocketException
@@ -11,7 +12,7 @@ async def get_user(token: str):
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                url=f"{settings.AUTH_URI}/auth/users/me/",
+                url=f"{settings.AUTH_URI}/profile/",
                 headers={
                     HEADER_KEY: 'JWT ' + token
                 }
@@ -66,7 +67,8 @@ async def approve_jwt_token_for_ws(
 ):
     approved_token = await approve_jwt_token(token=token, session=session)
     if approved_token:
-        return approved_token
+        # print(approved_token)
+        return ClientData(**approved_token)
     else:
         raise WebSocketException(
             code=status.WS_1008_POLICY_VIOLATION,

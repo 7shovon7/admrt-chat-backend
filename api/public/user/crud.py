@@ -2,9 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from api.database.models import User as UserModel
-from api.database.models import Conversation as ConversationModel
-from api.database.models import Chat as ChatModel
-from api.public.user.schemas import UserBase, UserCreate, UserDBModel, UserRead, UserUpdate
+from api.public.user.schemas import UserCreate, UserRead, UserUpdate
 from api.utils.logger import logger_config
 
 

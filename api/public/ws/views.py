@@ -19,15 +19,14 @@ async def websocket_endpoint_for_chat(
     token: str = Depends(approve_jwt_token_for_ws),
     db: Session = Depends(get_session),
 ):
-    from_id = str(token.get('id'))
-    # have to handle updated user data
-    await update_user_info(UserUpdate(**token), db)
-    await connection_manager.handle_new_connection(websocket, from_id, db)
+    # TOKEN HOLDS THE PARTIAL USER PROFILE DATA
+    await update_user_info(UserUpdate(**token.model_dump()), db)
+    await connection_manager.handle_new_connection(websocket, token.id, db)
     try:
         while True:
             message = await websocket.receive_text()
-            await connection_manager.handle_message(from_id, message, db)
+            await connection_manager.handle_message(token, message, db)
     except WebSocketDisconnect:
-        connection_manager.disconnect(from_id)
+        connection_manager.disconnect(token.id)
     except ConnectionClosedError:
         pass

@@ -8,7 +8,6 @@ from api.database.models import Conversation as ConversationModel
 from api.public.chat.schemas import ChatCreate, ChatOutput, ChatRead, ConversationCreate
 from api.public.user.crud import create_user_in_db
 from api.public.user.schemas import UserCreate
-from api.public.ws.schemas import ConversationObject, SingleMessageDistribution
 from api.utils import generate_conversation_id
 from api.utils.logger import logger_config
 
@@ -56,39 +55,8 @@ async def get_chats_by_conversation(
     conversation = db.query(ConversationModel).filter(
         ConversationModel.id==conversation_id
     ).limit(limit).first()
-
-    # conversation = [ChatOutput(**chat.as_dict()) for chat in chats]
     
     return conversation.chats
-
-
-async def fetch_undelivered_chats(
-    user_id1: str,
-    user_id2: str,
-    db: Session,
-    limit: int = 500,
-):
-    conversation_id = generate_conversation_id(user_id1, user_id2)
-    chats = db.query(ChatModel).filter(
-        and_(
-            ChatModel.conversation_id==conversation_id,
-            ChatModel.delivered==False
-        )
-    ).order_by(ChatModel.id.desc()).limit(limit).all()
-
-    conversation = [ChatRead(**chat.as_dict()) for chat in chats]
-    
-    return conversation
-
-
-async def update_as_delivered(
-    chat_id: int,
-    db: Session,
-):
-    # chat = db.query(Chat).get(chat_id).first()
-    db.query(ChatModel).filter_by(id=chat_id).update({'delivered': True})
-    db.commit()
-    return True
 
 
 async def update_as_delivered_in_bulk(
@@ -103,19 +71,7 @@ async def update_as_delivered_in_bulk(
     return True
 
 
-# async def fetch_initial_conversations(
-#     user_id: str,
-#     db: Session,
-# ):
-#     chats_from_db = db.query(Chat).filter(
-#         or_(
-#             Chat.sender_id==user_id,
-#             Chat.receiver_id==user_id,
-#         )
-#     )
-
-
-async def fetch_all_unread_conversations(
+async def fetch_initial_conversations(
     user_id: str,
     db: Session,
 ):
@@ -143,39 +99,6 @@ async def fetch_all_unread_conversations(
         else:
             resp_dict[user.id].append(user_dict)
     return {"summary": resp_dict}
-    # chats_from_db = db.query(Chat).filter(
-    #     and_(
-    #         or_(
-    #             Chat.sender_id==user_id,
-    #             Chat.receiver_id==user_id
-    #         ),
-    #         Chat.delivered==False
-    #     )
-    # ).order_by(Chat.id.desc()).all()
-    # conversations = {}
-    # for chat in chats_from_db:
-    #     chat_obj = SingleMessageDistribution(**chat.as_dict())
-    #     if chat_obj.sender_id != user_id:
-    #         partner_id = chat_obj.sender_id
-    #     else:
-    #         partner_id = chat_obj.receiver_id
-
-    #     if partner_id in conversations:
-    #         conversations[partner_id].append(chat_obj)
-    #     else:
-    #         conversations[partner_id] = [chat_obj]
-
-    # # Process to List of conversations
-    # conversation_obj = []
-    # for key, value in conversations.items():
-    #     conversation_obj.append(
-    #         ConversationObject(
-    #             partner_id=key,
-    #             conversation=value
-    #         )
-    #     )
-
-    # return conversation_obj
 
 
 async def fetch_single_conversation_upto_a_certain_time(
