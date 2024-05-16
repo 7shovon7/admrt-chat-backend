@@ -50,8 +50,8 @@ async def approve_jwt_token_for_http(
         session: Union[str, None] = Cookie(None),
 ):
     approved_token = await approve_jwt_token(token=token, session=session)
-    if approved_token and approved_token.get('id'):
-        return str(approved_token.get('id'))
+    if approved_token:
+        return approved_token
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -4,7 +4,9 @@ from websockets import ConnectionClosedError
 
 from api.auth import approve_jwt_token_for_ws
 from api.database import get_session
-from api.public.ws import manager as connection_manager
+from api.public.user.crud import update_user_info
+from api.public.user.schemas import UserUpdate
+from api.public.ws.connection_manager import manager as connection_manager
 
 
 router = APIRouter()
@@ -18,11 +20,13 @@ async def websocket_endpoint_for_chat(
     db: Session = Depends(get_session),
 ):
     from_id = str(token.get('id'))
-    await connection_manager.connect(websocket, from_id)
+    # have to handle updated user data
+    await update_user_info(UserUpdate(**token), db)
+    await connection_manager.handle_new_connection(websocket, from_id, db)
     try:
         while True:
             message = await websocket.receive_text()
-            await connection_manager.manage_message(from_id, message, db)
+            await connection_manager.handle_message(from_id, message, db)
     except WebSocketDisconnect:
         connection_manager.disconnect(from_id)
     except ConnectionClosedError:
