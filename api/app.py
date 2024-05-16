@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import Settings
 from api.public import api as public_api
@@ -25,6 +26,14 @@ def create_app(settings: Settings):
         docs_url="/",
         description=settings.DESCRIPTION,
         lifespan=lifespan,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=['*'],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.include_router(public_api)
