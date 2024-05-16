@@ -6,13 +6,12 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 
 from api.public.chat.crud import (
-    fetch_all_unread_conversations,
+    fetch_initial_conversations,
     fetch_single_conversation_upto_a_certain_time,
-    fetch_undelivered_chats,
     save_chat,
     update_as_delivered_in_bulk
 )
-from api.public.chat.schemas import ChatCreate, ChatOutput, ChatRead
+from api.public.chat.schemas import ChatCreate
 from api.public.ws import ALLOWED_ACTIONS
 from api.public.ws.schemas import ConversationObject, ErrorNotification, FetchConversationRequest, NewMessageDistribution, SendMessageRequest, SingleMessageDistribution, WSObject
 
@@ -22,7 +21,6 @@ class ConnectionManager:
         self.active_connections: dict = {}
     
     async def connect(self, websocket: WebSocket, client_id: str):
-        # improve conditional connect
         await websocket.accept()
         self.active_connections[client_id] = websocket
 
@@ -122,7 +120,7 @@ class ConnectionManager:
 
     async def send_all_unread_conversations(self, client_id: str, db: Session):
         # Fetch all unread conversations
-        conversations = await fetch_all_unread_conversations(client_id, db)
+        conversations = await fetch_initial_conversations(client_id, db)
         # # Send
         await self.notify_client(
             client_id=client_id,
