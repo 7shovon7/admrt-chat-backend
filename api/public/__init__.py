@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from api.auth import approve_jwt_token_for_http, approve_jwt_token_for_ws
 from api.public.health import views as health
 from api.public.chat import views as chat
+from api.public.user import views as user
 from api.public.ws import views as ws
 
 api = APIRouter()
@@ -14,6 +15,12 @@ api = APIRouter()
 #     tags=["Health"],
 #     # dependencies=[Depends(authent)],
 # )
+api.include_router(
+    user.router,
+    prefix="/user",
+    tags=["User"],
+    # dependencies=[Depends(approve_jwt_token_for_http)],
+)
 api.include_router(
     chat.router,
     prefix="/chat",

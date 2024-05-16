@@ -22,6 +22,7 @@ class ConnectionManager:
         self.active_connections: dict = {}
     
     async def connect(self, websocket: WebSocket, client_id: str):
+        # improve conditional connect
         await websocket.accept()
         self.active_connections[client_id] = websocket
 
@@ -34,7 +35,8 @@ class ConnectionManager:
     async def notify_client(self, client_id: str, message: BaseModel):
         if client_id in self.active_connections:
             await self.active_connections[client_id].send_text(json.dumps(message.model_dump()))
-        pass
+            return True
+        return False
 
     async def handle_error(self, client_id: str, error_message: Optional[str] = None):
         if error_message is not None:
@@ -45,49 +47,6 @@ class ConnectionManager:
                 ),
             )
             await self.notify_client(client_id, notification)
-
-    # async def deliver_the_undelivered(
-    #         self,
-    #         client_id: str,
-    #         partner_id: str,
-    #         db: Session,
-    # ):
-    #     chats: List[ChatRead] = await fetch_undelivered_chats(client_id, partner_id, db)
-    #     if client_id in self.active_connections:
-    #         await self.active_connections[client_id].send_text(
-    #             json.dumps([ChatToBeDistributed(**chat.model_dump()).model_dump() for chat in chats])
-    #         )
-    #         update_as_delivered_in_bulk(
-    #             chat_ids=[chat.id for chat in chats],
-    #             db=db,
-    #         )
-
-    # async def send_personal_message(
-    #         self,
-    #         chat: ChatCreate,
-    #         db: Session,
-    # ):
-    #     # Send message to receiver
-    #     if chat.receiver_id in self.active_connections:
-    #         await self.active_connections[chat.receiver_id].send_text(
-    #             json.dumps(ChatToBeDistributed(**chat.model_dump()).model_dump())
-    #         )
-    #     # Save chat to db
-    #     await save_chat(
-    #         chat=ChatCreate(**chat.model_dump()),
-    #         db=db,
-    #     )
-
-    # async def send_conversation(
-    #         self,
-    #         receiver_id: str,
-    #         conversation: List[ChatOutput],
-    # ):
-    #     # Send message to receiver
-    #     if receiver_id in self.active_connections:
-    #         await self.active_connections[receiver_id].send_text(
-    #             json.dumps(WSObject(action='CONVERSATION', body=conversation).model_dump())
-    #         )
 
     async def handle_message(
             self,
@@ -114,11 +73,13 @@ class ConnectionManager:
                         action=ALLOWED_ACTIONS.NEW_MESSAGE,
                         body=NewMessageDistribution(**create_chat_for_db.model_dump())
                     )
-                    await self.notify_client(
+                    client_notified = await self.notify_client(
                         client_id=chat.receiver_id,
                         message=chat_object
                     )
                     # Save chat to db
+                    if client_notified:
+                        create_chat_for_db.delivered = True
                     await save_chat(
                         chat=create_chat_for_db,
                         db=db,
@@ -140,7 +101,12 @@ class ConnectionManager:
                         conversation=[SingleMessageDistribution(**conv) for conv in db_conversation]
                     )
                 )
-                await self.notify_client(sender_id, conversation_object)
+                client_notified = await self.notify_client(sender_id, conversation_object)
+                if client_notified:
+                    await update_as_delivered_in_bulk(
+                        chat_ids=[conv.get('id') for conv in db_conversation],
+                        db=db
+                    )
         except JSONDecodeError:
             error_message = "Not a valid JSON formatted String"
         except ValidationError:
@@ -157,7 +123,7 @@ class ConnectionManager:
     async def send_all_unread_conversations(self, client_id: str, db: Session):
         # Fetch all unread conversations
         conversations = await fetch_all_unread_conversations(client_id, db)
-        # Send
+        # # Send
         await self.notify_client(
             client_id=client_id,
             message=WSObject(
