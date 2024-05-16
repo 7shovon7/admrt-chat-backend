@@ -18,7 +18,8 @@ class SingleMessageDistribution(SendMessageRequest):
 
 # 'NEW-MESSAGE'
 class NewMessageDistribution(SingleMessageDistribution):
-    pass
+    full_name: Optional[Union[str, None]] = None
+    profile_image: Optional[Union[str, None]] = None
 
 
 # 'CONVERSATION'

@@ -4,7 +4,9 @@ from typing import List, Optional
 from fastapi import WebSocket
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
+# import traceback
 
+from api.auth.schemas import ClientData
 from api.public.chat.crud import (
     fetch_initial_conversations,
     fetch_single_conversation_upto_a_certain_time,
@@ -14,6 +16,10 @@ from api.public.chat.crud import (
 from api.public.chat.schemas import ChatCreate
 from api.public.ws import ALLOWED_ACTIONS
 from api.public.ws.schemas import ConversationObject, ErrorNotification, FetchConversationRequest, NewMessageDistribution, SendMessageRequest, SingleMessageDistribution, WSObject
+from api.utils.logger import logger_config
+
+
+logger = logger_config(__name__)
 
 
 class ConnectionManager:
@@ -48,7 +54,7 @@ class ConnectionManager:
 
     async def handle_message(
             self,
-            sender_id: str,
+            sender_info: ClientData,
             message: str,
             db: Session,
     ):
@@ -61,15 +67,20 @@ class ConnectionManager:
             # Handle different actions
             if ws_object.action == ALLOWED_ACTIONS.SEND_MESSAGE:
                 chat: SendMessageRequest = TypeAdapter(SendMessageRequest).validate_python(ws_object.body)
-                if chat.receiver_id == sender_id:
+                # print(chat)
+                if chat.receiver_id == sender_info.id:
                     error_message="Messaging ownself isn't supported yet"
                     # It's done!
                 else:
                     # Send chat
-                    create_chat_for_db = ChatCreate(sender_id=sender_id, **chat.model_dump())
+                    create_chat_for_db = ChatCreate(sender_id=sender_info.id, **chat.model_dump())
                     chat_object = WSObject(
                         action=ALLOWED_ACTIONS.NEW_MESSAGE,
-                        body=NewMessageDistribution(**create_chat_for_db.model_dump())
+                        body=NewMessageDistribution(
+                            **create_chat_for_db.model_dump(),
+                            full_name=sender_info.full_name,
+                            profile_image=sender_info.profile_image
+                        )
                     )
                     client_notified = await self.notify_client(
                         client_id=chat.receiver_id,
@@ -85,7 +96,7 @@ class ConnectionManager:
             elif ws_object.action == ALLOWED_ACTIONS.FETCH_CONVERSATION:
                 req_data: FetchConversationRequest = TypeAdapter(FetchConversationRequest).validate_python(ws_object.body)
                 db_conversation = await fetch_single_conversation_upto_a_certain_time(
-                    user_id1=sender_id,
+                    user_id1=sender_info.id,
                     user_id2=req_data.partner_id,
                     max_timestamp=req_data.max_timestamp,
                     limit=req_data.limit,
@@ -99,7 +110,7 @@ class ConnectionManager:
                         conversation=[SingleMessageDistribution(**conv) for conv in db_conversation]
                     )
                 )
-                client_notified = await self.notify_client(sender_id, conversation_object)
+                client_notified = await self.notify_client(sender_info.id, conversation_object)
                 if client_notified:
                     await update_as_delivered_in_bulk(
                         chat_ids=[conv.get('id') for conv in db_conversation],
@@ -108,9 +119,10 @@ class ConnectionManager:
         except JSONDecodeError:
             error_message = "Not a valid JSON formatted String"
         except ValidationError:
+            # print(traceback.print_exc())
             error_message = "Request body is not properly formatted"
 
-        await self.handle_error(sender_id, error_message)
+        await self.handle_error(sender_info.id, error_message)
 
     async def handle_new_connection(self, websocket: WebSocket, client_id: str, db: Session):
         # Accept connection

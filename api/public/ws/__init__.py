@@ -5,6 +5,7 @@ MESSAGE = 'MESSAGE'
 CONVERSATION = 'CONVERSATION'
 NEW = 'NEW'
 UNREAD = 'UNREAD'
+LIST = 'LIST'
 ERROR = 'ERROR'
 
 # Composit Action Words
@@ -14,7 +15,7 @@ class AllowedActions:
     # for server only
     NEW_MESSAGE = f"{NEW}-{MESSAGE}" # action to be taken after processing 'SEND-MESSAGE'
     CONVERSATION = CONVERSATION # action to be taken after processing 'FETCH-CONVERSATION'
-    UNREAD_CONVERSATION = f"{UNREAD}-{CONVERSATION}" # when a client is connected, server automatically does this action
+    UNREAD_CONVERSATION = f"{CONVERSATION}-{LIST}" # when a client is connected, server automatically does this action
     ERROR = ERROR
 
     def __init__(self):
