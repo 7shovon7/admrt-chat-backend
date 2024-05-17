@@ -12,4 +12,4 @@ if os.path.exists(old_db_path):
 api = create_app(settings)
 
 if __name__ == "__main__":
-    uvicorn.run("asgi:api", host="0.0.0.0", port=80, reload=True)
+    uvicorn.run("asgi:api", host="0.0.0.0", port=8001, reload=True)
