@@ -1,5 +1,7 @@
 ### Custom ###
 *.db
+admrt.key
+admrt.pem
 
 
 ### Linux ###
