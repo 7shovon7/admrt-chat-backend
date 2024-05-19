@@ -1,34 +1,130 @@
 import json
 from json.decoder import JSONDecodeError
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import WebSocket
 from pydantic import BaseModel, TypeAdapter, ValidationError
-from sqlalchemy.orm import Session
 # import traceback
 
-from api.auth.schemas import ClientData
-from api.public.chat.crud import (
-    fetch_initial_conversations,
-    fetch_single_conversation_upto_a_certain_time,
-    save_chat,
-    update_as_delivered_in_bulk
-)
-from api.public.chat.schemas import ChatCreate
+from api.config import settings
 from api.public.ws import ALLOWED_ACTIONS
-from api.public.ws.schemas import ConversationObject, ErrorNotification, FetchConversationRequest, NewMessageDistribution, SendMessageRequest, SingleMessageDistribution, WSObject
+from api.public.ws.schemas import ConversationObject, ErrorNotification, FetchConversationRequest, SendMessageRequest, WSObject
 from api.utils.logger import logger_config
+import httpx
 
 
 logger = logger_config(__name__)
+
+
+HEADER_KEY = 'Authorization'
+
+
+async def load_conversation_list(token: str):
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                url=f"{settings.AUTH_URI}/chat/",
+                headers={
+                    HEADER_KEY: 'JWT ' + token
+                }
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as e:
+        print(e)
+    return None
+
+
+async def get_messages_with_a_partner(token: str, partner_id: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                url=f"{settings.AUTH_URI}/chat/?partner_id={partner_id}",
+                headers={
+                    HEADER_KEY: 'JWT ' + token
+                }
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as e:
+        print(e)
+    return None
+
+
+async def send_chat_message(token: str, msg: dict):
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url=f"{settings.AUTH_URI}/chat/",
+                headers={
+                    HEADER_KEY: 'JWT ' + token
+                },
+                json=msg
+            )
+            if resp.status_code == 201:
+                return resp.json()
+    except Exception as e:
+        print(e)
+    return None
+
+
+async def mark_message_as_delivered(token: str, chat_id: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.patch(
+                url=f"{settings.AUTH_URI}/chat/{chat_id}/",
+                headers={
+                    HEADER_KEY: 'JWT ' + token
+                },
+                json={"delivered": True}
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as e:
+        print(e)
+    return None
+
+
+async def mark_conversation_as_delivered(token: str, partner_id: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url=f"{settings.AUTH_URI}/chat/mark-delivered/",
+                headers={
+                    HEADER_KEY: 'JWT ' + token
+                },
+                json={"partner_id": partner_id}
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as e:
+        print(e)
+    return None
 
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict = {}
     
-    async def connect(self, websocket: WebSocket, client_id: str):
-        await websocket.accept()
-        self.active_connections[client_id] = websocket
+    async def connect(self, websocket: WebSocket, token: str):
+        try:
+            # Send the token to main api and grab the response [probably grab the conversation list response here]
+            loaded_conversations = await load_conversation_list(token)
+            # If valid, accept and add the user id and websocket connection id to db
+            if loaded_conversations:
+                client_id = str(loaded_conversations['user_id'])
+                await websocket.accept()
+                self.active_connections[client_id] = websocket
+                await self.notify_client(
+                    client_id=client_id,
+                    message=WSObject(
+                        action=ALLOWED_ACTIONS.UNREAD_CONVERSATION,
+                        body={"summary": loaded_conversations['conversations']}
+                    )
+                )
+                return client_id
+        except Exception:
+            pass
+        return None
 
     def disconnect(self, client_id: str):
         try:
@@ -36,7 +132,8 @@ class ConnectionManager:
         except KeyError:
             pass
 
-    async def notify_client(self, client_id: str, message: BaseModel):
+    async def notify_client(self, client_id: Union[str, int], message: BaseModel):
+        client_id = str(client_id)
         if client_id in self.active_connections:
             await self.active_connections[client_id].send_text(json.dumps(message.model_dump()))
             return True
@@ -54,9 +151,9 @@ class ConnectionManager:
 
     async def handle_message(
             self,
-            sender_info: ClientData,
+            token: str,
+            client_id: str,
             message: str,
-            db: Session,
     ):
         try:
             error_message = None
@@ -68,78 +165,50 @@ class ConnectionManager:
             if ws_object.action == ALLOWED_ACTIONS.SEND_MESSAGE:
                 chat: SendMessageRequest = TypeAdapter(SendMessageRequest).validate_python(ws_object.body)
                 # print(chat)
-                if chat.receiver_id == sender_info.id:
+                if chat.receiver_id == client_id:
                     error_message="Messaging ownself isn't supported yet"
                     # It's done!
                 else:
                     # Send chat
-                    create_chat_for_db = ChatCreate(sender_id=sender_info.id, **chat.model_dump())
-                    chat_object = WSObject(
-                        action=ALLOWED_ACTIONS.NEW_MESSAGE,
-                        body=NewMessageDistribution(
-                            **create_chat_for_db.model_dump(),
-                            full_name=sender_info.full_name,
-                            profile_image=sender_info.profile_image
+                    sent_message = await send_chat_message(
+                        token=token,
+                        msg=chat.model_dump()
+                    )
+                    client_notified = False
+                    if sent_message:
+                        chat_object = WSObject(
+                            action=ALLOWED_ACTIONS.NEW_MESSAGE,
+                            body=sent_message
                         )
-                    )
-                    client_notified = await self.notify_client(
-                        client_id=chat.receiver_id,
-                        message=chat_object
-                    )
+                        client_notified = await self.notify_client(
+                            client_id=chat.receiver_id,
+                            message=chat_object
+                        )
                     # Save chat to db
                     if client_notified:
-                        create_chat_for_db.delivered = True
-                    await save_chat(
-                        chat=create_chat_for_db,
-                        db=db,
-                    )
+                        await mark_message_as_delivered(token, sent_message.get('id'))
+
             elif ws_object.action == ALLOWED_ACTIONS.FETCH_CONVERSATION:
                 req_data: FetchConversationRequest = TypeAdapter(FetchConversationRequest).validate_python(ws_object.body)
-                db_conversation = await fetch_single_conversation_upto_a_certain_time(
-                    user_id1=sender_info.id,
-                    user_id2=req_data.partner_id,
-                    max_timestamp=req_data.max_timestamp,
-                    limit=req_data.limit,
-                    db=db,
-                )
-                # Process database object received as dict to user specific format
+                conversation = await get_messages_with_a_partner(token, req_data.partner_id)
+                # Process database object
                 conversation_object = WSObject(
                     action = ALLOWED_ACTIONS.CONVERSATION,
                     body = ConversationObject(
                         partner_id=req_data.partner_id,
-                        conversation=[SingleMessageDistribution(**conv) for conv in db_conversation]
+                        conversation=conversation
                     )
                 )
-                client_notified = await self.notify_client(sender_info.id, conversation_object)
+                client_notified = await self.notify_client(client_id, conversation_object)
                 if client_notified:
-                    await update_as_delivered_in_bulk(
-                        chat_ids=[conv.get('id') for conv in db_conversation],
-                        db=db
-                    )
+                    await mark_conversation_as_delivered(token, req_data.partner_id)
         except JSONDecodeError:
             error_message = "Not a valid JSON formatted String"
         except ValidationError:
             # print(traceback.print_exc())
             error_message = "Request body is not properly formatted"
 
-        await self.handle_error(sender_info.id, error_message)
+        await self.handle_error(client_id, error_message)
 
-    async def handle_new_connection(self, websocket: WebSocket, client_id: str, db: Session):
-        # Accept connection
-        await self.connect(websocket, client_id)
-        # Fetch and Send all unread conversations
-        await self.send_all_unread_conversations(client_id, db)
-
-    async def send_all_unread_conversations(self, client_id: str, db: Session):
-        # Fetch all unread conversations
-        conversations = await fetch_initial_conversations(client_id, db)
-        # # Send
-        await self.notify_client(
-            client_id=client_id,
-            message=WSObject(
-                action=ALLOWED_ACTIONS.UNREAD_CONVERSATION,
-                body=conversations
-            )
-        )
 
 manager = ConnectionManager()

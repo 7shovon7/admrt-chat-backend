@@ -41,7 +41,7 @@ class ChatInput(ChatBase):
 
     @field_validator('receiver_id')
     def convert_to_string(cls, value):
-        return str(value)
+        return int(value)
 
 
 class ChatCreate(ChatInput):
