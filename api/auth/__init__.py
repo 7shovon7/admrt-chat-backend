@@ -12,7 +12,7 @@ async def get_user(token: str):
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                url=f"{settings.AUTH_URI}/profile/",
+                url=f"{settings.AUTH_URI}/auth/users/me/",
                 headers={
                     HEADER_KEY: 'JWT ' + token
                 }
