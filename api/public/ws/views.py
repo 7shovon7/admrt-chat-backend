@@ -19,6 +19,6 @@ async def websocket_endpoint_for_chat(
             message = await websocket.receive_text()
             await connection_manager.handle_message(token, client_id, message)
     except WebSocketDisconnect:
-        connection_manager.disconnect(client_id)
+        connection_manager.disconnect(client_id, websocket)
     except ConnectionClosedError:
         pass

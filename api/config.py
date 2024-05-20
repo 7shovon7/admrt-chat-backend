@@ -14,6 +14,7 @@ class Settings:
     VERSION: str = "0.1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     DATABASE_URI: str = os.getenv('DATABASE_URI', 'sqlite:///database.db')
+    DYNAMO_DB_TABLE: str = os.getenv('DYNAMO_DB_TABLE')
     AUTH_URI: str = os.getenv('AUTH_URI', "https://dvuysrcv6p.us-east-1.awsapprunner.com")
 
     class Config:
