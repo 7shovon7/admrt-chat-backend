@@ -1,8 +1,16 @@
+# import boto3
+# from boto3.dynamodb.conditions import Attr
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from api.config import settings
+from api.utils.logger import logger_config
 
+
+logger = logger_config(__name__)
+
+# DYNAMO_DB_TABLE = boto3.resource('dynamodb').Table(settings.DYNAMO_DB_TABLE)
+# logger.info("DynamoDB has been connected")
 
 engine = create_engine(settings.DATABASE_URI, connect_args={"check_same_thread": False})
 
