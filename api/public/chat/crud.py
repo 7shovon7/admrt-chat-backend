@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from api.database.models import Chat as ChatModel
 from api.database.models import User as UserModel
 from api.database.models import Conversation as ConversationModel
-from api.public.chat.schemas import ChatCreate, ChatOutput, ChatRead, ConversationCreate
+from api.public.chat.schemas import ChatCreate, ChatOutput, ConversationCreate
 from api.public.user.crud import create_user_in_db
 from api.public.user.schemas import UserCreate
 from api.utils import generate_conversation_id

@@ -24,8 +24,12 @@ class NewMessageDistribution(SingleMessageDistribution):
 
 # 'CONVERSATION'
 class ConversationObject(BaseModel):
-    partner_id: str
-    conversation: List[SingleMessageDistribution]
+    partner_id: Union[str, int]
+    conversation: List[dict]
+
+    @field_validator('partner_id')
+    def convert_to_string(cls, value):
+        return int(value)
 
 
 # 'UNREAD-CONVERSATION'
@@ -41,7 +45,7 @@ class FetchConversationRequest(BaseModel):
 
     @field_validator('partner_id')
     def convert_to_string(cls, value):
-        return str(value)
+        return int(value)
 
 
 # Any incoming or outgoing message object
